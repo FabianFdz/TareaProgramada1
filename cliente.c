@@ -25,158 +25,233 @@
 #define GRACIAS printf("Gracias por utilizar Communicator!\n"); //imprimir un mensaje al final del programa
 //Definicion de macros
 #define PORT 3550   	/* El Puerto Abierto del nodo remoto */
-#define MAXDATASIZE 256 /* El número máximo de datos en bytes */
+#define MAXDATASIZE 100 /* El número máximo de datos en bytes */
+#define IP system("hostname -I");
+#define CONTACTO_ACTUAL "%s\t%s\t%s",actual.nombre,actual.ip,actual.puerto //para imprimir el contacto
 
-int recibe(char *argv[]){ //Solo recibe mensajes
-   	int fd, numbytes;       
-   	/* ficheros descriptores */
+servidor(){
+    int sock;
+    char datosrecibidos[2048];    //arreglo para recibir los datos  
+    struct sockaddr_in servidor; //struct obligatorio   para puertos y almacenar direcciones
+    int misock;
 
-   	char buf[MAXDATASIZE];  
-   	/* en donde es almacenará el texto recibido */
+    sock = socket(AF_INET, SOCK_STREAM, 0);  
+    int id;     
+    if(sock ==-1){
+       	perror("no se creo el socket");
+        exit(1);
+    }
 
-   	struct hostent *he;         
-   	/* estructura que recibirá información sobre el nodo remoto */
+ 	servidor.sin_family = AF_INET;         
+ 	servidor.sin_port = htons(9005);     
+ 	servidor.sin_addr.s_addr = INADDR_ANY;
+ 	bzero(&(servidor.sin_zero),8);
 
-   	struct sockaddr_in server;  
-   	/* información sobre la dirección del servidor */
+ 	if (bind(sock,(struct sockaddr *)&servidor,sizeof(servidor))){
+  		perror("Fallo el bind");
+  		exit(1);
+ 	}
 
-   	if ((he=gethostbyname(argv[1]))==NULL){       
-    	/* llamada a gethostbyname() */
-      	printf("gethostbyname() error\n");
-      	exit(-1);
-   	}
-
-   	if ((fd=socket(AF_INET, SOCK_STREAM, 0))==-1){  
-      	/* llamada a socket() */
-      	printf("socket() error\n");
-      	exit(-1);
-   	}
-
-   	server.sin_family = AF_INET;
-   	server.sin_port = htons(PORT); 
-   	server.sin_addr = *((struct in_addr *)he->h_addr);  
-   	/*he->h_addr pasa la información de ``*he'' a "h_addr" */
-   	bzero(&(server.sin_zero),8);
-
-   	if(connect(fd, (struct sockaddr *)&server,sizeof(struct sockaddr))==-1){ 
-      	/* llamada a connect() */
-      	printf("connect() error\n");
-      	exit(-1);
-   	}
-   	while(1){
-   		if ((numbytes=recv(fd,buf,MAXDATASIZE,0)) == -1){  
-      		/* llamada a recv() */
-      		printf("Error en recv() \n");
-      		exit(-1);
-   		}
-
-   		buf[numbytes]='\0';
-
-   		printf("Mensaje del Servidor: %s\n",buf); 
-   		/* muestra el mensaje de bienvenida del servidor =) */
-
-   		close(fd);   /* cerramos fd =) */
-
-	}
+ 	listen(sock,5);
+    misock = accept(sock, (struct sockaddr *)0,0);
+    if (misock == -1){
+        perror("Error al aceptar");
+    }
+    else{
+    	int estado;
+		while(estado = recv(misock,nombrerecibido,sizeof(nombrerecibido),0)>0){
+			recv(misock,datosrecibidos,sizeof(datosrecibidos),0);               
+			printf("%s\n",datosrecibidos);
+    	}
+    	if (estado == 0){
+    		printf("Desconectado...\n");
+    	}else{
+    		printf("Error\n")
+    	}
+	} 
 }
 
-envia(){
-   int fd, fd2; /* fd es el socket y fd2 el que acepta */
+int cliente_chat(char *direccion){
+	char direccion[16];
+	int sock,bytesrecibidos;
+ 	struct sockaddr_in cliente;
+ 	char datosenviados[2048];
+ 	char datoColor[2048]="\x1b[36m";
+ 	struct hostent *hp;
 
-   struct sockaddr_in server; 
-   /* para la información de la dirección del servidor */
+ 	printf("Digite su username: ");
+	scanf("%s",nombreenviado);
 
-   struct sockaddr_in client; 
-   /* para la información de la dirección del cliente */
+ 	sock = socket(AF_INET,SOCK_STREAM,0);
+ 	if(sock<0){
+ 		perror("No se creó el socket\n");
+   		exit(1);
+  	}
+ 	else{
+  		printf("\t \t \x1b[36mIngresa 'Exit' en cualquier momento para salir\x1b[0m\n");
+  		printf("\n");
+    }
 
-   int sin_size;
+ 	cliente.sin_family = AF_INET;         
+ 	cliente.sin_port = htons(9005);
+ 	cliente.sin_addr.s_addr = inet_addr("127.0.0.1"); //Conexión compu-compu
+ 	bzero(&(cliente.sin_zero),8); 
+ 
+ 	if(connect(sock,(struct sockaddr *)&cliente,sizeof(cliente))<0){
+  		perror("conexion fallida\n");
+  		close(sock);
+  		exit(1);
+ 	}
 
-   /* A continuación la llamada a socket() */
-   if ((fd=socket(AF_INET, SOCK_STREAM, 0)) == -1 ) {  
-      printf("Error en socket()\n");
-      exit(-1);
-   }
+	else{
+    	while(1){
+	    	char datoColor[2048]="\x1b[36m";
+	    	printf("%s", nombreenviado);
+	    	char ch;
+	    	int i;
+	    	for(i=0; i<2048||datosenviados[i]!='\0'; i++){
+	    		datosenviados[i] = '\0';
+	    	}
+	    	i = 0;
+	    	while( (ch=getchar())!='\n' ){
+           		datosenviados[i]=ch;
+           		i++;
+     		}
+			if(strcmp(datosenviados,"Exit")==0){
+				printf("Salida");
+				close(sock);
+				return;
+			}
+    		strcat(datoColor,datosenviados);
+    		strcat(datoColor,"\x1b[0m");
+			if(send(sock,datoColor,sizeof(datoColor),0)<0){
+				perror("envio fallido\n");
+				close(sock);
+	    		exit(1);
+			}
+		}
+	}
+	return 0;
+}
 
-   server.sin_family = AF_INET;         
+int cliente_registro(char *ip,char *nombre,char *puerto){
+	int sock,bytesrecibidos;
+ 	struct sockaddr_in cliente;
+ 	char datosenviados[2048];
+ 	char datoColor[2048]="\x1b[36m";
+ 	struct hostent *hp;
 
-   server.sin_port = htons(PORT); 
-   /* ¿Recuerdas a htons() de la sección "Conversiones"? =) */
+ 	printf("Digite su username: ");
+	scanf("%s",nombreenviado);
 
-   server.sin_addr.s_addr = INADDR_ANY; 
-   /* INADDR_ANY coloca nuestra dirección IP automáticamente */
+ 	sock = socket(AF_INET,SOCK_STREAM,0);
+ 	if(sock<0){
+ 		perror("No se creó el socket\n");
+   		exit(1);
+  	}
+ 	else{
+  		printf("\t \t \x1b[36mIngresa 'Exit' en cualquier momento para salir\x1b[0m\n");
+  		printf("\n");
+    }
 
-   bzero(&(server.sin_zero),8); 
-   /* escribimos ceros en el reto de la estructura */
+ 	cliente.sin_family = AF_INET;         
+ 	cliente.sin_port = htons(ip);
+ 	cliente.sin_addr.s_addr = inet_addr("127.0.0.1"); //Conexión compu-compu
+ 	bzero(&(cliente.sin_zero),8); 
+ 
+ 	if(connect(sock,(struct sockaddr *)&cliente,sizeof(cliente))<0){
+  		perror("conexion fallida\n");
+  		close(sock);
+  		exit(1);
+ 	}
 
-
-   /* A continuación la llamada a bind() */
-   if(bind(fd,(struct sockaddr*)&server,sizeof(struct sockaddr))==-1) {
-      printf("Error en bind() \n");
-      exit(-1);
-   }     
-
-   if(listen(fd,BACKLOG) == -1) {  /* llamada a listen() */
-      printf("Error en listen()\n");
-      exit(-1);
-   }
-
-   while(1) {
-      	sin_size = sizeof(struct sockaddr_in);
-      	/* A continuación la llamada a accept() */
-      	if ((fd2 = accept(fd,(struct sockaddr *)&client,&sin_size))==-1) {
-        	printf("Error en accept()\n");
-         	exit(-1);
-      	}
-
-      	printf("Se obtuvo una conexión desde %s\n",inet_ntoa(client.sin_addr));
-      	/* que mostrará la IP del cliente */
-
-      	send(fd2,"Bienvenido a mi servidor.\n",22,0); 
-      	/* que enviará el mensaje de bienvenida al cliente */
-
-      	close(fd2); /* cierra fd2 */
-   	}
+	else{
+		if(send(sock,nombre,sizeof(nombre),0)<0 && send(sock,ip,sizeof(ip),0)<0 && send(sock,puerto,sizeof(puerto),0)<0){
+			perror("envio fallido\n");
+			close(sock);
+	    	exit(1);
+		}
+	}
+	close(sock);
 }
 
 void inicio(){
 	int estado;
-	struct sockaddr_in servidor;
-	servidor.sin_family = AF_INET;         
- 	servidor.sin_port = htons(9005);     
- 	servidor.sin_addr.s_addr = INADDR_ANY;
- 	bzero(&(servidor.sin_zero),8);
  	//Inicio de fork()
 	switch(fork()){
 		case -1: // Si es -1 quiere decir que ha habido un error
 			perror(ANSI_COLOR_RED"Error de bifurcacion\n");
 			break;
 		case 0: // Cuando es cero quiere decir que es el proceso hijo
-			socket1 = crea_socket();
- 			bind1 = crea_bind(socket1);
- 			while(bind1){
- 				perror("Fallo bind 1 \n Intentando nuevamente...")
- 				bind1 = crea_bind(socket1);
- 			}
-
+			
 			break;			
 		case 1: // Cuando es 1 es el padre
-			socket2 = crea_socket();
- 			bind2 = crea_bind(socket2);
- 			while(bind2){
- 				perror("Fallo bind 2 \n Intentando nuevamente...")
- 				bind2 = crea_bind(socket2);
- 			}
-
+			
 			wait(estado); //?
 			close(socket2); //Se cierra el socket para no tener dificultades a la hora de correrlo nuevamente
 			close(bind2); //Se cierra el bind para no tener dificultades a la hora de correrlo nuevamente
 			break;
 	}
 }
+
 void registro(){
 	char usuario[256];
-	printf("Digite su nombre de usuario:");
-	scanf("%s",usuario);
+	char ip[256];
+	char puerto[256];
+	
+	ip = IP;
+
+	printf("Escribe tu nombre de usuario: ");
+	scanf("%s",usuario); //Se hace un scan y se almacena almacena el valor en la variable usuario.
+
+	printf("Desea cambiar el puerto(8080) por defecto? (S/N)\n");
+	scanf("%s",puerto); //Se hace un scan y se almacena almacena el valor en la variable usuario.
+	if (strcmp(puerto,"S")==0||strcmp(puerto,"s")==0){
+		printf("Digite el puerto:\n");
+		scanf("%s",puerto);
+	}else{
+		puerto = "8080";
+	}
+	cliente_registro(ip,nombre,puerto);
+}
+
+RecibeContactos(){
+	int sock;
+    char datosrecibidos[2048];    //arreglo para recibir los datos  
+    struct sockaddr_in servidor; //struct obligatorio   para puertos y almacenar direcciones
+    int misock;
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);  
+    int id;     
+    if(sock ==-1){
+       	perror("no se creo el socket");
+        exit(1);
+    }
+
+ 	servidor.sin_family = AF_INET;         
+ 	servidor.sin_port = htons(9005);     
+ 	servidor.sin_addr.s_addr = INADDR_ANY;
+ 	bzero(&(servidor.sin_zero),8);
+
+ 	if (bind(sock,(struct sockaddr *)&servidor,sizeof(servidor))){
+  		perror("Fallo el bind");
+  		exit(1);
+ 	}
+
+ 	listen(sock,5);
+    misock = accept(sock, (struct sockaddr *)0,0);
+    if (misock == -1){
+        perror("Error al aceptar");
+    }
+    else{
+    	int estado;
+    	printf(ANSI_COLOR_CYAN "NOMBRE\t    IP    \tPUERTO\n" ANSI_COLOR_RESET);//Cabecera de la impresion
+		while(estado = recv(misock,nombrerecibido,sizeof(nombrerecibido),0)>0){
+			recv(misock,datosrecibidos,sizeof(datosrecibidos),0);               
+			printf("%s\n",datosrecibidos);
+    	}
+    	printf(ANSI_COLOR_YELLOW "\n==========Fin de contactos==========\n" ANSI_COLOR_RESET);
+	} 
 }
 
 void menu(){
@@ -195,10 +270,10 @@ void menu(){
 		}else{
 			switch(opcion){
 				case 1:
-					//registro();
+					registro();
 					break;
 				case 2:
-					//ImprimeContactos();
+					RecibeContactos();
 					break;
 				case 3:
 					inicio();
