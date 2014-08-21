@@ -59,28 +59,24 @@ servidor(){
     }
     else{
     	int estado;
-		while(estado = recv(misock,nombrerecibido,sizeof(nombrerecibido),0)>0){
+		while(estado = recv(misock,datosrecibidos,sizeof(datosrecibidos),0)>0){
 			recv(misock,datosrecibidos,sizeof(datosrecibidos),0);               
 			printf("%s\n",datosrecibidos);
     	}
     	if (estado == 0){
     		printf("Desconectado...\n");
     	}else{
-    		printf("Error\n")
+    		printf("Error\n");
     	}
 	} 
 }
 
 int cliente_chat(char *direccion){
-	char direccion[16];
 	int sock,bytesrecibidos;
  	struct sockaddr_in cliente;
  	char datosenviados[2048];
  	char datoColor[2048]="\x1b[36m";
  	struct hostent *hp;
-
- 	printf("Digite su username: ");
-	scanf("%s",nombreenviado);
 
  	sock = socket(AF_INET,SOCK_STREAM,0);
  	if(sock<0){
@@ -141,18 +137,11 @@ int cliente_registro(char *ip,char *nombre,char *puerto){
  	char datoColor[2048]="\x1b[36m";
  	struct hostent *hp;
 
- 	printf("Digite su username: ");
-	scanf("%s",nombreenviado);
-
  	sock = socket(AF_INET,SOCK_STREAM,0);
  	if(sock<0){
  		perror("No se creó el socket\n");
    		exit(1);
   	}
- 	else{
-  		printf("\t \t \x1b[36mIngresa 'Exit' en cualquier momento para salir\x1b[0m\n");
-  		printf("\n");
-    }
 
  	cliente.sin_family = AF_INET;         
  	cliente.sin_port = htons(ip);
@@ -188,18 +177,18 @@ void inicio(){
 		case 1: // Cuando es 1 es el padre
 			
 			wait(estado); //?
-			close(socket2); //Se cierra el socket para no tener dificultades a la hora de correrlo nuevamente
-			close(bind2); //Se cierra el bind para no tener dificultades a la hora de correrlo nuevamente
+			//close(socket2); //Se cierra el socket para no tener dificultades a la hora de correrlo nuevamente
+			//close(bind2); //Se cierra el bind para no tener dificultades a la hora de correrlo nuevamente
 			break;
 	}
 }
 
 void registro(){
 	char usuario[256];
-	char ip[256];
-	char puerto[256];
+	char ip[25];
+	char puerto[25];
 	
-	ip = IP;
+	sprintf(ip,"%d",IP);
 
 	printf("Escribe tu nombre de usuario: ");
 	scanf("%s",usuario); //Se hace un scan y se almacena almacena el valor en la variable usuario.
@@ -246,8 +235,7 @@ RecibeContactos(){
     else{
     	int estado;
     	printf(ANSI_COLOR_CYAN "NOMBRE\t    IP    \tPUERTO\n" ANSI_COLOR_RESET);//Cabecera de la impresion
-		while(estado = recv(misock,nombrerecibido,sizeof(nombrerecibido),0)>0){
-			recv(misock,datosrecibidos,sizeof(datosrecibidos),0);               
+		while((estado = recv(misock,datosrecibidos,sizeof(datosrecibidos),0))>0){               
 			printf("%s\n",datosrecibidos);
     	}
     	printf(ANSI_COLOR_YELLOW "\n==========Fin de contactos==========\n" ANSI_COLOR_RESET);
@@ -276,7 +264,7 @@ void menu(){
 					RecibeContactos();
 					break;
 				case 3:
-					inicio();
+					//inicio();
 					break;
 				default:
 					i=0;
