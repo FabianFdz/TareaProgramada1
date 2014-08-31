@@ -10,17 +10,48 @@
 
 void chat(){//char *direccion, char *nombreenviado){
     int sock,sock2,bytesrecibidos;
-    struct sockaddr_in servidor1; //Servidor para enviar
+    struct sockaddr_in servidor; //Servidor para enviar
     struct sockaddr_in servidor2; //Servidor para recibir
     char datosenviados[2048];
     char datosrecibidos[2048];
     char nombrerecibido[100];
     char datoColor[2048]="\x1b[36m";
-    struct hostent *hp;
+    struct hostent *he;
 
     //Para prueba:
-    char *direccion = "127.0.0.1";
+    char *direccion = "192.168.146.130";
     char *nombreenviado = "Fabian";
+
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if(sock ==-1){ //Si no se puede crear el socket se intenta crear 5 veces mas
+        printf("No se pudo crear el socket\n");
+        exit(1);
+    }
+
+    if ((he=gethostbyname(direccion))==NULL){       
+        /* llamada a gethostbyname() */
+        printf("gethostbyname() error\n");
+        exit(-1);
+    }
+
+    printf("\t \t \x1b[32mBienvenido a Messenger\x1b[0m\n");
+    printf("\t \t \x1b[36mIngresa 'Exit' en cualquier momento para salir\x1b[0m\n");
+    printf("\n");
+
+    /*Configuraciones para sock1*/
+    printf("Configurando...\n");
+    servidor.sin_family = AF_INET;         
+    servidor.sin_port = htons(3095);//Asigna un puerto disponible de la compu
+    servidor.sin_addr = *((struct in_addr *)he->h_addr);
+    bzero(&(servidor.sin_zero),8);
+
+    /*Conexion envia_mensajes con el servidor*/
+    printf("Conectando...\n");
+    if(connect(sock,(struct sockaddr *)&servidor,sizeof(servidor))<0){
+        while((connect(sock,(struct sockaddr *)&servidor,sizeof(servidor))<0)<0){     //Si hay un error con la conexion intenta 
+            printf("Conectando... (Envio)\n");                                          //conectar n veces hasta que conecte
+        }
+    }
 
     /*Fork para envio y recepcion de mensajes*/
     int pid,i,estado;
@@ -32,50 +63,6 @@ void chat(){//char *direccion, char *nombreenviado){
             perror("No se ha podido crear el proceso hijo\n");
             break;
         case 0: // Proceso hijo (Recepcion de mensajes)
-            /*Creacion de socket*/
-            sock2 = socket(AF_INET, SOCK_STREAM, 0);
-            if(sock2 == -1){//Si no se puede crear el socket se intenta crear 5 veces mas
-                int intento_de_conexion = 1;
-                while((sock2 == -1) && (intento_de_conexion < 6)){
-                    close(sock2);
-                    sock2 = socket(AF_INET, SOCK_STREAM, 0);
-                    printf("Intento de crear socket %i...\n",intento_de_conexion++);
-                }
-                if (intento_de_conexion == 6){//Si es 6 quiere decir que no se pudo crear
-                    printf("No se pudo crear el socket\n");
-                    exit(1);
-                }
-            }
-
-            /*Configuraciones para sock2*/
-            servidor2.sin_family = AF_INET;         
-            servidor2.sin_port = htons(8900);//Asigna un puerto disponible de la compu
-            servidor2.sin_addr.s_addr = inet_addr(direccion);
-            bzero(&(servidor2.sin_zero),8);
-
-            /*Conexion recibe_mensajes con el servidor*/
-            /*Bind con sock2*/
-            printf("Creando bind...\n");
-            if(bind(sock2,(struct sockaddr *)&servidor2,sizeof(servidor2))){
-                int intento_de_conexion = 1;
-                while((bind(sock2,(struct sockaddr *)&servidor2,sizeof(servidor2))) && (intento_de_conexion < 6)){
-                    printf("Intento de crear bind %i\n",intento_de_conexion++);
-                }
-                if (intento_de_conexion == 6){
-                    printf("No se pudo crear bind\n");
-                    exit(1);
-                }
-            }
-            /*Listen para sock2*/
-            listen(sock2,5);
-            int misock2 = accept(sock2,(struct sockaddr *)0,0);
-            if (misock2 == -1){
-                int intento_de_conexion = 1;
-                while(misock2 == -1){
-                    misock2 = accept(sock2,(struct sockaddr *)0,0);
-                    printf("Intento de conectar... (%i)\n",intento_de_conexion++);
-                }
-            }
             while(1){
                 printf("Proceso hijo en proceso...\n");
                 recv(sock,nombrerecibido,sizeof(nombrerecibido),0);
@@ -85,49 +72,15 @@ void chat(){//char *direccion, char *nombreenviado){
                     printf("Salida");
                     //close(sock2);
                     close(sock);
-                    return;
+                    break;
                 }
                 printf("%s",nombrerecibido);                 
                 printf("%s\n",datosrecibidos);
             }
             break;
         case 1: // Proceso padre (Envio de mensajes)
-            /*Creacion de socket 1*/
-            sock = socket(AF_INET, SOCK_STREAM, 0);
-            if(sock ==-1){ //Si no se puede crear el socket se intenta crear 5 veces mas
-                int intento_de_conexion = 1;
-                while((sock == -1) && (intento_de_conexion < 6)){
-                    close(sock);
-                    sock = socket(AF_INET, SOCK_STREAM, 0);
-                    printf("Intento de crear socket %i...\n",intento_de_conexion++);
-                }
-                if (intento_de_conexion == 6){//Si es 6 quiere decir que no se pudo crear*/
-                    printf("No se pudo crear el socket\n");
-                    exit(1);
-                }
-            }
-
-            printf("\t \t \x1b[32mBienvenido a Messenger\x1b[0m\n");
-            printf("\t \t \x1b[36mIngresa 'Exit' en cualquier momento para salir\x1b[0m\n");
-            printf("\n");
-
-            /*Configuraciones para sock1*/
-            printf("Configurando...\n");
-            servidor1.sin_family = AF_INET;         
-            servidor1.sin_port = htons(3095);//Asigna un puerto disponible de la compu
-            servidor1.sin_addr.s_addr = inet_addr(direccion);
-            bzero(&(servidor1.sin_zero),8);
-
-            /*Conexion envia_mensajes con el servidor*/
-            printf("Conectando...\n");
-            if(connect(sock,(struct sockaddr *)&servidor1,sizeof(servidor1))<0){
-                while((connect(sock,(struct sockaddr *)&servidor1,sizeof(servidor1))<0)<0){     //Si hay un error con la conexion intenta 
-                    printf("Conectando... (Envio)\n");                                          //conectar n veces hasta que conecte
-                }
-            }
-
             /* Envio de mensajes */
-            while(sock != -1){
+            while(1){
                 printf("Proceso padre en proceso...\n");
                 send(sock,nombreenviado,sizeof(nombreenviado),0); //Envia nombre
                 char datoColor[2048]="\x1b[36m"; //Pone color al mensaje que se va a enviar
@@ -147,7 +100,7 @@ void chat(){//char *direccion, char *nombreenviado){
                     send(sock,datosenviados,sizeof(datosenviados),0);//envia el mensaje "Exit" al otro cliente para que cierre la conexion
                     printf("Salida");
                     close(sock);//Cierra el socket
-                    return;//Acaba el programa
+                    break;//Acaba el while
                 }
                 strcat(datoColor,datosenviados);//Concatena para darle color
                 strcat(datoColor,"\x1b[0m"); //Concatena para darle color
