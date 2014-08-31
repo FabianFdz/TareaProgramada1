@@ -54,10 +54,9 @@ void servidor_chat(){
     //printf("El puerto abierto es: %i\n", puerto);
     /*Configuraciones para sock1*/
  	servidor.sin_family = AF_INET;         
- 	servidor.sin_port = puerto;//Asigna un puerto disponible de la compu
+ 	servidor.sin_port = 8080;//Asigna un puerto disponible de la compu
  	servidor.sin_addr.s_addr = INADDR_ANY;
  	bzero(&(servidor.sin_zero),8);
-    printf("Configuracion lista en cliente1\n");
 
     /*Bind*/
  	if(bind(sock1,(struct sockaddr *)&servidor,sizeof(servidor))){
@@ -70,30 +69,29 @@ void servidor_chat(){
             exit(1);
         }
  	}
-    printf("Bind listo\n");
 
     /*Listen para 5 conexiones*/
     listen(sock1,5);
     printf("Esperando cliente 1...\n");
-    misock1 = accept(sock1,(struct sockaddr *)&cliente1,sizeof(cliente1));
-    if (misock1 == -1){
-        intento_de_conexion = 1;
-        while(misock1 == -1){
-            misock1 = accept(sock1,(struct sockaddr *)0,0);
-            printf("Intento de conectar... (%i)\n",intento_de_conexion++);
-        }
-    }
-    printf("Esperando cliente 2...\n");
-    misock2 = accept(sock1,(struct sockaddr *)&cliente2,sizeof(cliente2));
-    if (misock2 == -1){
-        intento_de_conexion = 1;
-        while(misock2 == -1){
-            misock2 = accept(sock1,(struct sockaddr *)0,0);
-            printf("Intento de conectar... (%i)\n",intento_de_conexion++);
-        }
-    }
+    
 
 	while(1){
+        misock1 = accept(sock1,(struct sockaddr *)&cliente1,sizeof(cliente1));
+        if (misock1 == -1){
+            intento_de_conexion = 1;
+            while(misock1 == -1){
+                misock1 = accept(sock1,(struct sockaddr *)0,0);
+                printf("Intento de conectar... (%i)\n",intento_de_conexion++);
+            }
+        }
+        misock2 = accept(sock1,(struct sockaddr *)&cliente2,sizeof(cliente2));
+        if (misock2 == -1){
+            intento_de_conexion = 1;
+            while(misock2 == -1){
+                misock2 = accept(sock1,(struct sockaddr *)&cliente2,sizeof(cliente2));
+                printf("Intento de conectar... (%i)\n",intento_de_conexion++);
+            }
+        }
         /*Recepcion y reenvio de nombres*/
 		if(recv(misock1,nombrerecibido,sizeof(nombrerecibido),0) != -1){ //Se recibe el nombre del usuario 1
             printf("%s\n",nombrerecibido);
