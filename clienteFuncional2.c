@@ -14,7 +14,7 @@ void envia(){
     char datosrecibidos[2048];
     char nombrerecibido[100];
     char datoColor[2048]="\x1b[36m";
-    struct hostent *hp;
+    struct hostent *he;
 
     char *nombreenviado = "Fabian";
     char *direccion = "192.168.146.130";
@@ -25,7 +25,7 @@ void envia(){
         exit(1);
     }
 
-    if ((he=gethostbyname(direccion)==NULL){       
+    if ((he=gethostbyname(direccion))==NULL){       
         /* llamada a gethostbyname() */
         printf("gethostbyname() error\n");
         exit(-1);
@@ -38,7 +38,7 @@ void envia(){
 
     cliente.sin_family = AF_INET;         
     cliente.sin_port = htons(9005);
-    cliente..sin_addr = *((struct in_addr *)he->h_addr); //Conexión compu-compu
+    cliente.sin_addr = *((struct in_addr *)he->h_addr); //Conexión compu-compu
     bzero(&(cliente.sin_zero),8); 
  
     if(connect(sock,(struct sockaddr *)&cliente,sizeof(cliente))<0){
