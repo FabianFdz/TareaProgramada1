@@ -27,7 +27,7 @@
 #define CONTACTOS "contactos.txt" //Nombre del archivo de contactos
 
 /** Puerto  */
-#define PORT 7000
+#define PORT 7001
 
 /** Número máximo de hijos */
 #define MAX_CHILDS 5
@@ -55,6 +55,10 @@ void reloj(int loop);
 void reloj_registro(int loop);
 void Inicia_chat(int socket, struct sockaddr_in addr, char *nombre_destinatario);
 unsigned int sleep(unsigned int seconds);
+int Busca_socket(char nombre[]);
+int CargaContactos();
+int Busca_socket(char nombre[]);
+char * AgregarContactos(char *datosContacto,int socket,struct sockaddr_in addr);
 
 conexion Lista_de_conexiones[4];
 contacto contactos[MAX_CONTACTS]; //Arreglo de contactos de cantidad MAX_CONTACTS
@@ -73,7 +77,7 @@ int CargaContactos(){ 	//funcion que carga los contactos del archivo contactos.t
 	printf("Buscando archivo de contactos...\n");
 	if(archivo==NULL)	//Imprime un mensaje de error si el archivo de contactos no existe
 		{
-			printf(PERROR "Archivo de contactos no encontrado\n");
+			printf("Archivo de contactos no encontrado\n");
 			return 1; //Retorna 1 al main indicando que el archivo de contactos no fue encontrado
 		}
 	else
@@ -93,10 +97,6 @@ int CargaContactos(){ 	//funcion que carga los contactos del archivo contactos.t
 		printf("Contactos importados:" ANSI_COLOR_GREEN " %d\n"  ANSI_COLOR_RESET, total_contactos);
 	}
 	return 0;
-}
-
-void ImprimeContactos(int socket_client){
-	
 }
 
 int main(int argv, char** argc){
@@ -133,7 +133,6 @@ int main(int argv, char** argc){
 
     size_addr = sizeof(struct sockaddr_in);
 
-
     while(activated){
     	reloj(loop);
     	/* select() se carga el valor de rfds */
@@ -151,24 +150,25 @@ int main(int argv, char** argc){
         		switch ( childpid=fork() ){
           			case -1:  /* Error */
             			error(4, "No se puede crear el proceso hijo");
-            		break;
-          		case 0:   /* Somos proceso hijo */
-            		if (childcount<MAX_CHILDS){
-            			conexion nueva;
-            			nueva.socket = socket_client;
-            			nueva.datos = client_addr;
-            			Lista_de_conexiones[total_conexiones] = nueva;
-            			total_conexiones++;
-              			exitcode=AtiendeCliente(socket_client, client_addr);
-            		}else
-              			exitcode=DemasiadosClientes(socket_client, client_addr);
+            			break;
+          			case 0:   /* Somos proceso hijo */
+            			if (childcount<MAX_CHILDS){
+            				//conexion nueva;
+            				//nueva.socket = socket_client;
+            				//nueva.datos = client_addr;
+            				//Lista_de_conexiones[total_conexiones] = nueva;
+            				total_conexiones++;
+            				printf("El total de conexiones es: %i\n", total_conexiones);
+              				exitcode=AtiendeCliente(socket_client, client_addr);
+            			}else
+              				exitcode=DemasiadosClientes(socket_client, client_addr);
 
-            		exit(exitcode); /* Código de salida */
-          		default:  /* Somos proceso padre */
-            		childcount++; /* Acabamos de tener un hijo */
-            		close(socket_client); /* Nuestro hijo se las apaña con el cliente que
-                         entró, para nosotros ya no existe. */
-            		break;
+            			exit(exitcode); /* Código de salida */
+          			default:  /* Somos proceso padre */
+            			childcount++; /* Acabamos de tener un hijo */
+            			close(socket_client); /* Nuestro hijo se las apaña con el cliente que
+                        entró, para nosotros ya no existe. */
+            			break;
           		}
           	}else
           		fprintf(stderr, "ERROR AL ACEPTAR LA CONEXIÓN\n");
@@ -216,47 +216,72 @@ int DemasiadosClientes(int socket, struct sockaddr_in addr)
 }
 
 int AtiendeCliente(int socket, struct sockaddr_in addr){
+	printf("Estoy en AtiendeCliente()\n");
     char buffer[BUFFERSIZE];
     char aux[BUFFERSIZE];
     int bytecount;
     int fin=0;
     int code=0;         /* Código de salida por defecto */
-    int i = 0;
     while (!fin){
+    	printf("Estoy dentro del while\n");
     	memset(buffer, 0, BUFFERSIZE);
     	if((bytecount = recv(socket, buffer, BUFFERSIZE, 0))== -1)
       		error(5, "No puedo recibir información");
-      	printf("Mensaje de %s: %s\n",addr.sin_addr, buffer);
+      	//printf("Mensaje de %s: %s\n",addr.sin_addr, buffer);
 	    /* Evaluamos los comandos */
     	/* Comando 1 - Agrega Contactos */
-    	if (strncmp(buffer[0], "1", 4)==0){
+    	if (strncmp(buffer, "1", 4)==0){
     		//reloj_registro(i);
+    		printf("Estoy dentro del 1\n");
 	        memset(buffer, 0, BUFFERSIZE);
-	        sleep(60);
-	        recv(socket, buffer, BUFFERSIZE, 0)
-    	    sprintf(buffer,AgregarContactos(socket,addr));
+	        sleep(10);
+	        printf("Pase el sleep()\n");
+	        recv(socket, buffer, BUFFERSIZE, 0);
+    	    strcpy(buffer,AgregarContactos(buffer,socket,addr));
+    	    sprintf(buffer,"Hola estas en el 1");
+    	    if((bytecount = send(socket, buffer, strlen(buffer), 0))== -1){
+      			error(6, "No puedo enviar información");
+    	    }
     	/* Comando 2 - Imprime contactos */
     	}else if (strncmp(buffer, "2", 1)==0){
         	memset(buffer, 0, BUFFERSIZE);
         	int cont=0;
         	sprintf(buffer,"NOMBRE\t    IP    \tPUERTO\n");
-        	send(socket, buffer, strlen(buffer), 0)
-        	sleep(5);
+        	send(socket, buffer, strlen(buffer), 0);
+        	sleep(3);
+        	char *msg=(char*)malloc(35);
 			while(cont<=total_contactos){//Ciclo que imprime cada contacto con su info
-				contacto actual=contactos[cont];		
-				sprintf(buffer,actual.nombre,"\t",actual.ip,"\t",actual.puerto);
-				sleep(5);
+				int i;
+	    		for(i=0; i<BUFFERSIZE||buffer[i]!='\0'; i++){
+	    			buffer[i] = '\0';
+	    		}
+				contacto actual=contactos[cont];
+				/*strcpy(buffer,actual.nombre);
+				strcpy(buffer,"\t");
+				strcpy(buffer,actual.ip);
+				strcpy(buffer,"\t");
+				strcpy(buffer,actual.puerto);*/
+  				sprintf(buffer,"%s\t%s\t%s",actual.nombre,actual.ip,actual.puerto);
+				if((bytecount = send(socket, buffer, strlen(buffer), 0))== -1){
+      				error(6, "No puedo enviar información");
+				}
+				sleep(3);
 				cont++;
 			}
-			sprintf(buffer,"\n==========Fin de contactos==========\n");
       	/* Comando 3 - Inicia chat */
     	}else if (strncmp(buffer, "3", 1)==0){
         	memset(buffer, 0, BUFFERSIZE);
-        	/*Chat*/
+        	sleep(7);
+        	recv(socket, buffer, BUFFERSIZE, 0);
+        	Inicia_chat(socket,addr,buffer);
+        	memset(buffer, 0, BUFFERSIZE);
     	/* Comando EXIT - Cierra la conexión actual */
     	}else if (strncmp(buffer, "4", 1)==0){
         	memset(buffer, 0, BUFFERSIZE);
         	sprintf(buffer, "Hasta luego. Vuelve pronto %s\n", inet_ntoa(addr.sin_addr));
+        	if((bytecount = send(socket, buffer, strlen(buffer), 0))== -1){
+      			error(6, "No puedo enviar información");
+        	}
         	fin=1;
     	/* Comando CERRAR - Cierra el servidor */
     	}else if (strncmp(buffer, "123456", 6)==0){
@@ -265,20 +290,78 @@ int AtiendeCliente(int socket, struct sockaddr_in addr){
         	fin=1;
         	code=99;        /* Salir del programa */
       	}
-
-    	if((bytecount = send(socket, buffer, strlen(buffer), 0))== -1)
-      		error(6, "No puedo enviar información");
     }
 
     close(socket);
     return code;
 }
 
-char *AgregarContactos(char *datosContacto,int socket,struct sockaddr_in addr){
+int Busca_socket(char nombre[]){
+	int i = 0,socket;
+	contacto actual;
+	int cont=0;
+	while(cont<total_contactos)//Ciclo que imprime cada contacto con su info
+	{
+		actual=contactos[cont];	
+		if(strcmp(actual.nombre,nombre)==0){
+			while(i<4){
+				if(strcmp(inet_ntoa(Lista_de_conexiones[i].datos.sin_addr),actual.ip)==0){
+					socket = Lista_de_conexiones[i].socket;
+					return socket;
+				}
+			}
+		}else if(cont==total_contactos){
+			return 0;
+		}
+		cont++;
+	}
+	return 0; //Si no encuentra contacto
+}
+
+char *Nombre(char *datos){
+	int i = 0,i2 = 0;
+	char *nombre;
+	while(datos[i] != ","){
+		nombre[i] = datos[i];
+		i++;
+	}
+	return nombre;
+}
+
+char *IP(char *datos){
+	int i = 0,i2 = 0;
+	char *nombre;
+	while(i2<2){
+		while(datos[i] != "," && i2 == 1){
+			nombre[i] = datos[i];
+			i++;
+		}
+		i2++;
+	}
+	return nombre;
+}
+
+char *Puerto(char *datos){
+	int i = 0,i2 = 0;
+	char *nombre;
+	while(i2<2){
+		while(datos[i] != "\0" && i2 == 2){
+			nombre[i] = datos[i];
+			i++;
+		}
+		i2++;
+	}
+	return nombre;
+}
+
+char * AgregarContactos(char *datosContacto,int socket,struct sockaddr_in addr){
 	char *mensaje = "Contacto no pudo ser cargado!";
 	if(total_contactos==MAX_CONTACTS)
 		return mensaje;
 	else{
+		char *usuario = Nombre(datosContacto);
+		char *puerto = Puerto(datosContacto);
+		char *ip = inet_ntoa(addr.sin_addr);
 		strcpy(contactos[total_contactos].nombre,usuario);
 		strcpy(contactos[total_contactos].puerto,puerto);
 		strcpy(contactos[total_contactos].ip,ip);
@@ -292,22 +375,32 @@ char *AgregarContactos(char *datosContacto,int socket,struct sockaddr_in addr){
 	return mensaje;
 }
 
-contacto Busca_destinatario(char *nombre){
-	int cont=0;
-	contacto actual;
-	while(cont<total_contactos){//Ciclo que imprime cada contacto con su info
-		actual=contactos[cont];		
-		if(strcmp(actual.nombre,nombre)==0){
-			printf("Contacto encontrado\n");
-			break;}
-		cont++;
-	}
-	return actual;
-}
-
 void Inicia_chat(int socket, struct sockaddr_in addr, char *nombre_destinatario){
-	contacto destino = Busca_destinatario(nombre_destinatario);
-
+	int socket_des = Busca_socket(nombre_destinatario);
+	if (socket_des == 0){
+		return;
+	}
+	char buffer1[BUFFERSIZE];
+	char buffer2[BUFFERSIZE];
+	int fin = 0;
+	while(!fin){
+		if((recv(socket, buffer2, BUFFERSIZE, 0))== -1){
+      		error(5, "No puedo recibir información");
+      		fin = 1;
+      	}
+      	if((recv(socket_des, buffer1, BUFFERSIZE, 0))== -1){
+      		error(5, "No puedo recibir información");
+      		fin = 1;
+      	}
+		if((send(socket, buffer1, strlen(buffer1), 0))== -1){
+      		error(6, "No puedo enviar información");
+      		fin = 1;
+		}
+		if((send(socket_des, buffer2, strlen(buffer2), 0))== -1){
+      		error(6, "No puedo enviar información");
+      		fin = 1;
+		}
+	}
 }
 
 void reloj(int loop){
