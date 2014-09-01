@@ -158,6 +158,7 @@ void menu(int sock,struct sockaddr_in cliente,int sock_sv,struct sockaddr_in ser
                 for(i=0; i<512||buffer1[i]!='\0'; i++){
                     buffer1[i] = '\0';
                 }
+                sleep(3);
                 recv(sock,buffer1,sizeof(buffer1),0);
                 printf("%s\n", buffer1);
             }
