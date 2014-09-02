@@ -27,7 +27,7 @@
 #define CONTACTOS "contactos.txt" //Nombre del archivo de contactos
 
 /** Puerto  */
-#define PORT 7001
+#define PORT 7000
 
 /** Número máximo de hijos */
 #define MAX_CHILDS 5
@@ -52,13 +52,13 @@ int AtiendeCliente(int socket, struct sockaddr_in addr);
 int DemasiadosClientes(int socket, struct sockaddr_in addr);
 void error(int code, char *err);
 void reloj(int loop);
-void reloj_registro(int loop);
 void Inicia_chat(int socket, struct sockaddr_in addr, char *nombre_destinatario);
 unsigned int sleep(unsigned int seconds);
 int Busca_socket(char nombre[]);
 int CargaContactos();
 int Busca_socket(char nombre[]);
-char * AgregarContactos(char *datosContacto,int socket,struct sockaddr_in addr);
+//char * AgregarContactos(char *datosContacto,struct sockaddr_in addr);
+void AgregarContactos(char usuario[],char ip[],char puerto[]);
 
 conexion Lista_de_conexiones[4];
 contacto contactos[MAX_CONTACTS]; //Arreglo de contactos de cantidad MAX_CONTACTS
@@ -97,6 +97,31 @@ int CargaContactos(){ 	//funcion que carga los contactos del archivo contactos.t
 		printf("Contactos importados:" ANSI_COLOR_GREEN " %d\n"  ANSI_COLOR_RESET, total_contactos);
 	}
 	return 0;
+}
+
+void registro(int socket,struct sockaddr_in cliente){
+    char buffer[BUFFERSIZE];
+    
+    char usuario[256];
+    char puerto[32];
+    char ip[32];
+    char ch;
+
+    strcpy(buffer,"Escribe tu nombre de usuario: \n");
+    send(socket, buffer, strlen(buffer), 0);
+    recv(socket, usuario, 256, 0);
+    
+    sprintf(ip,"%s",inet_ntoa(cliente.sin_addr));
+    sprintf(puerto,"%d",cliente.sin_port);
+
+    printf("Saliendo de registro\n");
+    
+    AgregarContactos(usuario,ip,puerto);
+    printf("Usuario: %s\n",usuario);
+    printf("Puerto: %s\n",puerto);
+    printf("IP: %s\n",ip);
+    printf("------FIN DE REGISTRO------\n");
+    send(socket,"------FIN DE REGISTRO------",512,0);
 }
 
 int main(int argv, char** argc){
@@ -158,7 +183,7 @@ int main(int argv, char** argc){
             				//nueva.datos = client_addr;
             				//Lista_de_conexiones[total_conexiones] = nueva;
             				total_conexiones++;
-            				printf("El total de conexiones es: %i\n", total_conexiones);
+            				printf("El total de conexiones es: %i\n", childcount);
               				exitcode=AtiendeCliente(socket_client, client_addr);
             			}else
               				exitcode=DemasiadosClientes(socket_client, client_addr);
@@ -216,52 +241,42 @@ int DemasiadosClientes(int socket, struct sockaddr_in addr)
 }
 
 int AtiendeCliente(int socket, struct sockaddr_in addr){
-	printf("Estoy en AtiendeCliente()\n");
     char buffer[BUFFERSIZE];
     char aux[BUFFERSIZE];
     int bytecount;
     int fin=0;
     int code=0;         /* Código de salida por defecto */
     while (!fin){
-    	printf("Estoy dentro del while\n");
     	memset(buffer, 0, BUFFERSIZE);
-    	if((bytecount = recv(socket, buffer, BUFFERSIZE, 0))== -1)
+    	if((bytecount = recv(socket, buffer, BUFFERSIZE, 0))== -1){
       		error(5, "No puedo recibir información");
-      	//printf("Mensaje de %s: %s\n",addr.sin_addr, buffer);
+      		fin = 1;
+    	}
+
 	    /* Evaluamos los comandos */
-    	/* Comando 1 - Agrega Contactos */
-    	if (strncmp(buffer, "1", 4)==0){
-    		//reloj_registro(i);
-    		printf("Estoy dentro del 1\n");
+    	
+    	if (strncmp(buffer, "1", 4)==0){/* Comando 1 - Agrega Contactos */
 	        memset(buffer, 0, BUFFERSIZE);
-	        sleep(10);
-	        printf("Pase el sleep()\n");
-	        recv(socket, buffer, BUFFERSIZE, 0);
-    	    strcpy(buffer,AgregarContactos(buffer,socket,addr));
-    	    sprintf(buffer,"Hola estas en el 1");
-    	    if((bytecount = send(socket, buffer, strlen(buffer), 0))== -1){
-      			error(6, "No puedo enviar información");
-    	    }
-    	/* Comando 2 - Imprime contactos */
-    	}else if (strncmp(buffer, "2", 1)==0){
+	        registro(socket,addr);
+    	}else if (strncmp(buffer, "2", 1)==0){/* Comando 2 - Imprime contactos */
         	memset(buffer, 0, BUFFERSIZE);
+        	int i;
+        	for(i=0; i<512||buffer[i]!='\0'; i++){
+                buffer[i] = '\0';
+            }
         	int cont=0;
-        	sprintf(buffer,"NOMBRE\t    IP    \tPUERTO\n");
+        	sprintf(buffer,"%i",total_contactos);
         	send(socket, buffer, strlen(buffer), 0);
         	sleep(3);
-        	char *msg=(char*)malloc(35);
-			while(cont<=total_contactos){//Ciclo que imprime cada contacto con su info
-				int i;
+        	sprintf(buffer,"NOMBRE\n");
+        	send(socket, buffer, strlen(buffer), 0);
+        	sleep(3);
+			while(cont<=total_contactos){//Ciclo que manda cada nombre
 	    		for(i=0; i<BUFFERSIZE||buffer[i]!='\0'; i++){
 	    			buffer[i] = '\0';
 	    		}
 				contacto actual=contactos[cont];
-				/*strcpy(buffer,actual.nombre);
-				strcpy(buffer,"\t");
-				strcpy(buffer,actual.ip);
-				strcpy(buffer,"\t");
-				strcpy(buffer,actual.puerto);*/
-  				sprintf(buffer,"%s\t%s\t%s",actual.nombre,actual.ip,actual.puerto);
+  				sprintf(buffer,"%s",actual.nombre);
 				if((bytecount = send(socket, buffer, strlen(buffer), 0))== -1){
       				error(6, "No puedo enviar información");
 				}
@@ -271,7 +286,7 @@ int AtiendeCliente(int socket, struct sockaddr_in addr){
       	/* Comando 3 - Inicia chat */
     	}else if (strncmp(buffer, "3", 1)==0){
         	memset(buffer, 0, BUFFERSIZE);
-        	sleep(7);
+        	sleep(3);
         	recv(socket, buffer, BUFFERSIZE, 0);
         	Inicia_chat(socket,addr,buffer);
         	memset(buffer, 0, BUFFERSIZE);
@@ -318,61 +333,22 @@ int Busca_socket(char nombre[]){
 	return 0; //Si no encuentra contacto
 }
 
-char *Nombre(char *datos){
-	int i = 0,i2 = 0;
-	char *nombre;
-	while(datos[i] != ","){
-		nombre[i] = datos[i];
-		i++;
-	}
-	return nombre;
-}
-
-char *IP(char *datos){
-	int i = 0,i2 = 0;
-	char *nombre;
-	while(i2<2){
-		while(datos[i] != "," && i2 == 1){
-			nombre[i] = datos[i];
-			i++;
-		}
-		i2++;
-	}
-	return nombre;
-}
-
-char *Puerto(char *datos){
-	int i = 0,i2 = 0;
-	char *nombre;
-	while(i2<2){
-		while(datos[i] != "\0" && i2 == 2){
-			nombre[i] = datos[i];
-			i++;
-		}
-		i2++;
-	}
-	return nombre;
-}
-
-char * AgregarContactos(char *datosContacto,int socket,struct sockaddr_in addr){
-	char *mensaje = "Contacto no pudo ser cargado!";
-	if(total_contactos==MAX_CONTACTS)
-		return mensaje;
+void AgregarContactos(char usuario[],char ip[],char puerto[]){
+	if (total_contactos==MAX_CONTACTS)
+		printf("Maximo numero de contactos alcanzado\n");
 	else{
-		char *usuario = Nombre(datosContacto);
-		char *puerto = Puerto(datosContacto);
-		char *ip = inet_ntoa(addr.sin_addr);
+		printf("Contacto: %s - %s - %s\n",usuario,puerto,ip);
 		strcpy(contactos[total_contactos].nombre,usuario);
 		strcpy(contactos[total_contactos].puerto,puerto);
 		strcpy(contactos[total_contactos].ip,ip);
 		
 		//Las siguientes 2 lineas agregan el contacto al archivo txt
 		FILE *archivo = fopen(CONTACTOS, "a"); //creo un puntero del tipo File y cargo el archivo hola.txt, si el archivo no existe, lo crea y si existe escribe al final
-		fprintf(archivo, "%s\n", datosContacto);//escribo la variable a en el archivo archivo.txt
+		fprintf(archivo, "%s,%s,%s\n", usuario, ip, puerto);//escribo la variable a en el archivo archivo.txt
 		fclose(archivo);
-		mensaje = "Contacto agregado exitosamente!";
+		printf("Contacto agregado exitosamente!\n");
 	}
-	return mensaje;
+	return;
 }
 
 void Inicia_chat(int socket, struct sockaddr_in addr, char *nombre_destinatario){
@@ -406,22 +382,6 @@ void Inicia_chat(int socket, struct sockaddr_in addr, char *nombre_destinatario)
 void reloj(int loop){
   	if (loop==0)
     	printf("[SERVIDOR] Esperando conexión  ");
-
-  	printf("\033[1D");        /* Codigo ANSI para retroceder 2 caracteres */
-  	switch (loop%4){
-    	case 0: printf("|"); break;
-    	case 1: printf("/"); break;
-    	case 2: printf("-"); break;
-    	case 3: printf("\\"); break;
-    	default:            /* No debemos estar aqui */
-      	break;
-    }
-	fflush(stdout);       /* Actualiza la pantalla */
-}
-
-void reloj_registro(int loop){
-  	if (loop==0)
-    	printf("[SERVIDOR] Esperando respuesta  ");
 
   	printf("\033[1D");        /* Codigo ANSI para retroceder 2 caracteres */
   	switch (loop%4){
