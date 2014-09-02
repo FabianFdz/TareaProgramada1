@@ -19,8 +19,6 @@
 #define PERROR ANSI_COLOR_RED "Error: " ANSI_COLOR_RESET 
 #define DIRECCION "192.168.146.130"
 
-char puerto[56] = "8080";
-
 void cliente_(int sock,struct sockaddr_in cliente){
     char datosenviados[2048];
     char datosrecibidos[2048];
@@ -29,8 +27,8 @@ void cliente_(int sock,struct sockaddr_in cliente){
     char *nombreenviado = "Fabian";
     int primero = 0;
     while(sock != -1){
-        //send(sock,nombreenviado,sizeof(nombreenviado),0);
-        //char datoColor[2048]="\x1b[36m";
+        send(sock,nombreenviado,sizeof(nombreenviado),0);
+        char datoColor[2048]="\x1b[36m";
         if(primero){
             printf("%s: ", nombreenviado);
         }else{
@@ -38,7 +36,7 @@ void cliente_(int sock,struct sockaddr_in cliente){
         }
         char ch;
         int i;
-        for(i=0; i<2048;i++){//||datosenviados[i]!='\0'; i++){
+        for(i=0; i<2048||datosenviados[i]!='\0'; i++){
             datosenviados[i] = '\0';
         }
         i = 0;
@@ -51,14 +49,14 @@ void cliente_(int sock,struct sockaddr_in cliente){
             close(sock);
             return;
         }
-        //strcat(datoColor,datosenviados);
-        //strcat(datoColor,"\x1b[0m");
+        strcat(datoColor,datosenviados);
+        strcat(datoColor,"\x1b[0m");
         if(send(sock,datosenviados,sizeof(datosenviados),0)<0){
-            //perror("envio fallido\n");
-            //close(sock);
-            //exit(1);
+            perror("envio fallido\n");
+            close(sock);
+            exit(1);
         }
-        printf("Envio: %s\n", datosenviados);
+        //printf("Envio: %s\n", datosenviados);
         recv(sock,datosrecibidos,sizeof(datosrecibidos),0);
         printf("Respuesta del servidor%s: %s\n",nombrerecibido,datosrecibidos);
     }
@@ -100,68 +98,56 @@ void chat(int sock,struct sockaddr_in cliente,int sock_sv,struct sockaddr_in ser
     }
 }
 
-char *registro(struct sockaddr_in servidor){
-    char buffer[512];
-    
-    char usuario[256];
-    int ip;
-    char ch;
-    
-    printf("Escribe tu nombre de usuario: ");
-    scanf("%s",usuario); //hago un scan y almaceno el valor en la variable usuario.
+registro(int socket){
+    char buffer[512],buffer1[512];
+    int cont=1;
 
-    ip = inet_ntoa(servidor.sin_addr);
-    printf("%i\n",ip);
-    printf("Desea cambiar el puerto predeterminado (8080)? (S/N)\n");
-    ch=getchar(); //hago un scan y almaceno el valor en la variable usuario.
-    if (ch == "s" || ch == "S"){
-        printf("Desea cambiar el puerto predeterminado (8080)? (S/N)\n");
-        int i = 0;
-        while((ch=getchar())!='\n'){
-            puerto[i]=ch;
-            i++;
-        }
-        //scanf("%s",puerto); //hago un scan y almaceno el valor en la variable usuario.
-    }
-    printf("Antes de sprintf()\n");
-    sprintf(buffer,usuario,",",ip,",",puerto);
-    printf("%s\n",buffer);
-    return buffer;
+    recv(socket,buffer1,512,0);//se recibe mensaje del servidor
+    printf("%s",buffer1);//Se imprime mensaje del servidor
+    scanf("%s",buffer); //se hace un scan y almacena el valor en la variable usuario.
+    send(socket,buffer,strlen(buffer),0);//se envia el usuario de vuelta
+    recv(socket,buffer1,512,0);
+    printf("%s\n",buffer1);
 }
 
 void menu(int sock,struct sockaddr_in cliente,int sock_sv,struct sockaddr_in servidor){
-    char *buffer;
     char buffer1[512];
     system("clear");
     while(1){
+        int i;
+        memset(buffer1, 0, 512);
         int opcion;
         printf(ANSI_COLOR_YELLOW "1." ANSI_COLOR_RESET "Agregar contactos\n");
         printf(ANSI_COLOR_YELLOW "2." ANSI_COLOR_RESET "Imprimir contactos\n");
         printf(ANSI_COLOR_YELLOW "3." ANSI_COLOR_RESET "Iniciar chat\n");
         printf("Opcion: ");
         scanf("%d",&opcion);
-        buffer = "\0";
-        if(opcion==1){
+        if(opcion==1){////////////Registro///////////////
             send(sock,"1",sizeof("1"),0);
-            buffer = registro(servidor);
-            send(sock,buffer,sizeof(buffer),0);
-        }else if(opcion==2){
-            buffer = "2";
-            if(send(sock,buffer,sizeof(buffer),0)<0){
+            registro(sock);
+        }else if(opcion==2){///////////Impresion de contactos
+            if(send(sock,"2",sizeof("2"),0)<0){
                 perror("envio fallido\n");
                 close(sock);
                 exit(1);
             }
-            sleep(3);
-            while(1){
-                int i;
-                for(i=0; i<512||buffer1[i]!='\0'; i++){
+            //sleep(3);
+            recv(sock,buffer1,sizeof(buffer1),0);
+            printf("Total de Contactos: %s\n", buffer1);
+            int x = atoi(buffer1);
+            while(x>=0){
+                for(i=0; i<512&&buffer1[i]!='\0'; i++){
                     buffer1[i] = '\0';
                 }
-                sleep(3);
-                recv(sock,buffer1,sizeof(buffer1),0);
+                //sleep(1);
+                if(recv(sock,buffer1,sizeof(buffer1),0)==0 || x==20){
+                    break;
+                }
                 printf("%s\n", buffer1);
+                x--;
             }
+            printf("------Fin de Contactos------\n\n");
+
         }else if(opcion==3){
             send(sock,"3",sizeof("3"),0);
             chat(sock,cliente,sock_sv,servidor);
@@ -183,11 +169,15 @@ int main(){//int argc, char const *argv[]){
     
     if(sock1 ==-1)
         perror("No se creo el socket de escucha");
+    char puerto[32];
+    printf("Puerto por el que desea conectarse: ");
+    scanf("%s",puerto);
 
     servidor.sin_family = AF_INET;         
-    servidor.sin_port = htons(puerto);     
+    servidor.sin_port = htons(atoi(puerto));
     servidor.sin_addr.s_addr = INADDR_ANY;
     bzero(&(servidor.sin_zero),8);
+    printf("El puerto digitado es: %d\n",servidor.sin_port);
 
     if (bind(sock1,(struct sockaddr *)&servidor,sizeof(servidor))){
         perror("Fallo el bind");
@@ -205,7 +195,7 @@ int main(){//int argc, char const *argv[]){
         exit(1);
     }
     cliente.sin_family = AF_INET;         
-    cliente.sin_port = htons(7001);
+    cliente.sin_port = htons(7000);
     cliente.sin_addr.s_addr = inet_addr(DIRECCION); //Conexión compu-compu
     bzero(&(cliente.sin_zero),8); 
  
