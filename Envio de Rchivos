@@ -1,0 +1,61 @@
+Como les habia comentado para el envio de los archivos se realiza por cargas de bytes,mediante el siguiente codigo creo
+que se puede lograra esa funcionalidad
+void carga_paquete(FILE *fd,PACKET *packet){
+int i=0; // contador de bytes
+char c; //variable donde se almacena el caracter leido
+while(i<SIZE){ // mientras no se llege al limite de bytes de datos ...
+c=getc(fd); // leemos del fichero un caracter
+if(feof(fd)) break; //si llegamos al final del fichero salimos del bucle
+packet->data[i++]=c; //guardamos los bytes leidos en el campo data
+}//fin while
+packet->size=htonl(i); //convertimos el numero de bytes que enviaremos a formato red
+if (feof(fd))
+packet->last=htonl(1); //si llega aki es que es el ultimo pakete
+else
+packet->last=htonl(0); //si entra por aki es que aun quedan paketes
+packet->control = htonl(DATOS); //tipo de pakete que estamos enviando
+}
+void envia_paquete(int sc, PACKET* packet){
+if (send(sc,packet,sizeof(*packet),0)<= 0)
+ERROR("send");
+} // fin
+void recibe_file(FILE * fd, int sock) {
+PACKET *packet; // puntero a la estructura del protocolo del paquete
+int i; // contador de caracteres
+packet = (PACKET *) malloc (sizeof(*packet)); //inicializamos el puntero
+printf("Recibiendo archivo\n");
+do
+{
+lee_paquete(packet, sock);
+/* Ordenamos los bytes de red a orden de bytes de host */
+if (ntohl(packet->control) != DATOS)
+ERROR("TIPO DE PAQUETE INESPERADO\n");
+for (i=0;i < ntohl(packet->size); i++)
+putc (packet->data[i], fd); //escribimos los bytes recibidos en el fichero
+} while (!ntohl(packet->last));
+printf("Archivo recibido\n");
+} // fin funcio
+void lee_paquete(PACKET* packet, int sock)
+{
+if (recv(sock, packet, sizeof(*packet), 0) <= 0)
+ERROR("recv error");
+} //fin
+Les adjunto la fuente
+http://foro.elhacker.net/programacion_cc/envio_de_archivos_mediante_sockets-t237593.0.html
+ahy queda mas claro
+A lo que he estado leyendo la la utilizacion de los ficheros (Fille) hay de dos tipos :de textos y binarios
+Los de texto leen la informacion linea por linea (txt)
+Los binarios no tiene lugar a ninguna traduccion de caracteres (Fots,imagenes,archivos con ejecutable,ect)
+Documentacion Externa:http://www.ual.es/~abecerra/ID/archivos.pdf
+El autor del codigo cita la utilizacion de PING's y de checksum:
+ping es una utilidad diagnóstica1 en redes de computadoras que comprueba el estado de la comunicación del host local
+con uno o varios equipos remotos de una red a IP por medio del envío de paquetes ICMP de solicitud y de respuesta.
+Mediante esta utilidad puede diagnosticarse el estado, velocidad y calidad de una red determinada.
+definicion de wikipedia :P----- http://es.wikipedia.org/wiki/Ping
+Una suma de verificación, ( también llamada suma de chequeo o checksum), en telecomunicación e informática, es una
+función hash que tiene como propósito principal detectar cambios accidentales en una secuencia de datos para proteger
+la integridad de estos, verificando que no haya discrepancias entre los valores obtenidos al hacer una comprobación
+inicial y otra final tras la transmisión. La idea es que se transmita el dato junto con su valor hash, de esta forma
+el receptor puede calcular dicho valor y compararlo así con el valor hash recibido. Si hay una discrepancia se pueden
+rechazar los datos o pedir una retransmisión.
+otra de Wiki:P------http://es.wikipedia.org/wiki/Suma_de_verificaci%C3%B3n
