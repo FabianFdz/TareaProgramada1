@@ -19,7 +19,57 @@
 #define PERROR ANSI_COLOR_RED "Error: " ANSI_COLOR_RESET 
 #define DIRECCION "192.168.146.130"
 
-void cliente_(int sock,struct sockaddr_in cliente){
+char* encriptarFrase (char frase[]){
+    char *res;
+    int i;
+    int largo = strlen(frase);
+    for(i=0 ; i<largo ; ++i){
+        //convierte las minusculas a mayuscula.
+        //*(frase + i) = toupper(*(frase + i));
+        //descarta los digitos
+        if(isalpha(*(frase + i))){
+            //verifica los casos especiales X-Y-Z
+            //if(*(frase + i) > 87)
+                *(frase + i) = *(frase + i) - 23;
+            //else
+            //{
+                //*(frase + i) = *(frase + i) + 3;
+            //}
+        }
+        if(isdigit(*(frase + i))){
+                *(frase + i) = *(frase + i) + 6;
+        }else{
+                *(frase + i) = *(frase + i) - 4;
+        }
+    }
+    strcpy(res,frase);
+    return res;
+}
+
+char* desencriptarFrase (char frase[]){
+    int i;
+    char *res;
+    int largo = strlen(frase);
+    for(i=0 ; i<largo ; ++i){
+        if(isalpha(*(frase + i))){
+            //if(*(frase + i) < 68)
+                *(frase + i) = *(frase + i) + 23;
+            //else
+            //{
+                //*(frase + i)= *(frase + i) - 3;
+            //}
+        }
+        if(isdigit(*(frase + i))){
+                *(frase + i) = *(frase + i) - 6;
+        }else{
+                *(frase + i) = *(frase + i) + 4;
+        }
+    }
+    strcpy(res,frase);
+    return res;
+}
+
+void cliente_(int sock){
     char datosenviados[2048];
     char datosrecibidos[2048];
     char nombrerecibido[100];
@@ -51,47 +101,49 @@ void cliente_(int sock,struct sockaddr_in cliente){
         }
         strcat(datoColor,datosenviados);
         strcat(datoColor,"\x1b[0m");
+        strcpy(datosenviados,encriptarFrase(datosenviados));
         if(send(sock,datosenviados,sizeof(datosenviados),0)<0){
             perror("envio fallido\n");
             close(sock);
             exit(1);
         }
         //printf("Envio: %s\n", datosenviados);
-        recv(sock,datosrecibidos,sizeof(datosrecibidos),0);
-        printf("Respuesta del servidor%s: %s\n",nombrerecibido,datosrecibidos);
     }
 }
 
 void servidor_(int sock){
-    int misock;
+    //int misock;
+    char datosrecibidos[2048];
     while(1){
-        misock = accept(sock, (struct sockaddr *)0,0);
+        /*misock = accept(sock, (struct sockaddr *)&servidor,sizeof(servidor));
         if (misock == -1){
             perror("Error al aceptar");
-        }
+        }//*/
+        recv(sock,datosrecibidos,sizeof(datosrecibidos),0);
+        strcpy(datosrecibidos,desencriptarFrase(datosrecibidos));
+        printf("%s\n",datosrecibidos);
     }
 }
 
-void chat(int sock,struct sockaddr_in cliente,int sock_sv,struct sockaddr_in servidor){//char *direccion, char *nombreenviado){
+void chat(int sock){//,struct sockaddr_in cliente,int sock_sv,struct sockaddr_in servidor){//char *direccion, char *nombreenviado){
     int pid;
     int i;
     int estado;
+    char buffer[512];
 
     pid = fork();
- 
+    //printf("Con quien desea iniciar una conversacion: ");
+    //scanf("%s",buffer);
+    //send(sock,buffer,512,0);
     switch(pid){
         case -1: // Si pid es -1 quiere decir que ha habido un error
             perror("No se ha podido crear el proceso hijo\n");
             break;
         case 0: // Cuando pid es cero quiere decir que es el proceso hijo
-            while(1){
-                cliente_(socket,cliente);
-            }
+            cliente_(socket);
             break;
         default: // Cuando es distinto de cero es el padre
-            while(1){
-                servidor_(sock_sv);
-            }
+            servidor_(socket);
             wait(estado);
             //printf("Mi proceso hijo ya ha terminado.\n");
             break;
@@ -143,14 +195,14 @@ void menu(int sock,struct sockaddr_in cliente,int sock_sv,struct sockaddr_in ser
                 if(recv(sock,buffer1,sizeof(buffer1),0)==0 || x==20){
                     break;
                 }
-                printf("%s\n", buffer1);
+                printf("\t%s\n", buffer1);
                 x--;
             }
             printf("------Fin de Contactos------\n\n");
 
         }else if(opcion==3){
             send(sock,"3",sizeof("3"),0);
-            chat(sock,cliente,sock_sv,servidor);
+            chat(sock);
         }
     }
 }
@@ -159,22 +211,17 @@ int main(){//int argc, char const *argv[]){
     int sock,sock1,bytesrecibidos;
     struct sockaddr_in cliente;
     struct sockaddr_in servidor;
-    char datosenviados[2048];
-    char datosrecibidos[2048];
-    char nombrerecibido[100];
-    //char nombreenviado[100];
-    char datoColor[2048]="\x1b[36m";
 
-    sock1 = socket(AF_INET, SOCK_STREAM, 0);  
+    /*sock1 = socket(AF_INET, SOCK_STREAM, 0);  
     
     if(sock1 ==-1)
         perror("No se creo el socket de escucha");
-    char puerto[32];
-    printf("Puerto por el que desea conectarse: ");
-    scanf("%s",puerto);
+    //char puerto[32];
+    //printf("Puerto por el que desea conectarse: ");
+    //scanf("%s",puerto);
 
     servidor.sin_family = AF_INET;         
-    servidor.sin_port = htons(atoi(puerto));
+    servidor.sin_port = htons(8080);//atoi(puerto));
     servidor.sin_addr.s_addr = INADDR_ANY;
     bzero(&(servidor.sin_zero),8);
     printf("El puerto digitado es: %d\n",servidor.sin_port);
@@ -187,7 +234,7 @@ int main(){//int argc, char const *argv[]){
 
     listen(sock1,5);
 
-/////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////*///////////////////////////////////////////
 
     sock = socket(AF_INET,SOCK_STREAM,0);
     if(sock<0){
