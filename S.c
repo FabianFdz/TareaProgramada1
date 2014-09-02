@@ -23,7 +23,7 @@
 #define ANSI_COLOR_RESET   "\x1b[0m"
 //Fin colores
 
-#define MAX_CONTACTS 10
+#define MAX_CONTACTS 100
 #define CONTACTOS "contactos.txt" //Nombre del archivo de contactos
 
 /** Puerto  */
@@ -52,7 +52,7 @@ int AtiendeCliente(int socket, struct sockaddr_in addr);
 int DemasiadosClientes(int socket, struct sockaddr_in addr);
 void error(int code, char *err);
 void reloj(int loop);
-void Inicia_chat(int socket, struct sockaddr_in addr, char *nombre_destinatario);
+void Inicia_chat(int socket, char *nombre_destinatario);
 unsigned int sleep(unsigned int seconds);
 int Busca_socket(char nombre[]);
 int CargaContactos();
@@ -75,6 +75,7 @@ int CargaContactos(){ 	//funcion que carga los contactos del archivo contactos.t
 	FILE *archivo;		//variable de archivo "archivo"
 	archivo = fopen(CONTACTOS, "r");	//apertura del archivo en modo lectura
 	printf("Buscando archivo de contactos...\n");
+	total_contactos = 0;
 	if(archivo==NULL)	//Imprime un mensaje de error si el archivo de contactos no existe
 		{
 			printf("Archivo de contactos no encontrado\n");
@@ -82,13 +83,16 @@ int CargaContactos(){ 	//funcion que carga los contactos del archivo contactos.t
 		}
 	else
 	{
+		char nombre[512];
+		char ipdir[512];
+        char puerto[512];
 		printf("Archivo de contactos encontrado\n");
 		while ((read = getline(&line, &len, archivo)) != -1) //Comienza a leer linea por linea y a dividir cada linea de acuerdo a la estructura definida en el archivo contactos.txt
 		{
 		  //Separa cada linea del archivo por medio de la coma
-          char* nombre= strtok(line,",");
-		  char* ipdir = strtok(NULL,",");
-          char* puerto = strtok(NULL,",");          
+          strcpy(nombre,strtok(line,","));
+		  strcpy(ipdir,strtok(NULL,","));
+          strcpy(puerto,strtok(NULL,","));          
 		  strcpy(contactos[total_contactos].nombre,nombre);//ingresa el nombre al struct contacto actual
 		  strcpy(contactos[total_contactos].puerto,puerto);//ingresa el puerto al struct contacto actual
 		  strcpy(contactos[total_contactos].ip,ipdir);//ingresa la ip al struct contacto actual
@@ -112,7 +116,7 @@ void registro(int socket,struct sockaddr_in cliente){
     recv(socket, usuario, 256, 0);
     
     sprintf(ip,"%s",inet_ntoa(cliente.sin_addr));
-    sprintf(puerto,"%d",cliente.sin_port);
+    sprintf(puerto,"%i",8080);
 
     printf("Saliendo de registro\n");
     
@@ -122,6 +126,7 @@ void registro(int socket,struct sockaddr_in cliente){
     printf("IP: %s\n",ip);
     printf("------FIN DE REGISTRO------\n");
     send(socket,"------FIN DE REGISTRO------",512,0);
+    CargaContactos();
 }
 
 int main(int argv, char** argc){
@@ -183,7 +188,7 @@ int main(int argv, char** argc){
             				//nueva.datos = client_addr;
             				//Lista_de_conexiones[total_conexiones] = nueva;
             				total_conexiones++;
-            				printf("El total de conexiones es: %i\n", childcount);
+            				printf("El total de conexiones es: %i\n", childcount+1);
               				exitcode=AtiendeCliente(socket_client, client_addr);
             			}else
               				exitcode=DemasiadosClientes(socket_client, client_addr);
@@ -280,15 +285,14 @@ int AtiendeCliente(int socket, struct sockaddr_in addr){
 				if((bytecount = send(socket, buffer, strlen(buffer), 0))== -1){
       				error(6, "No puedo enviar información");
 				}
-				sleep(3);
+				sleep(1);
 				cont++;
 			}
       	/* Comando 3 - Inicia chat */
     	}else if (strncmp(buffer, "3", 1)==0){
         	memset(buffer, 0, BUFFERSIZE);
-        	sleep(3);
         	recv(socket, buffer, BUFFERSIZE, 0);
-        	Inicia_chat(socket,addr,buffer);
+        	Inicia_chat(socket,buffer);
         	memset(buffer, 0, BUFFERSIZE);
     	/* Comando EXIT - Cierra la conexión actual */
     	}else if (strncmp(buffer, "4", 1)==0){
@@ -326,6 +330,7 @@ int Busca_socket(char nombre[]){
 				}
 			}
 		}else if(cont==total_contactos){
+			printf("No encontrado...\n");
 			return 0;
 		}
 		cont++;
@@ -351,10 +356,10 @@ void AgregarContactos(char usuario[],char ip[],char puerto[]){
 	return;
 }
 
-void Inicia_chat(int socket, struct sockaddr_in addr, char *nombre_destinatario){
+void Inicia_chat(int socket, char *nombre_destinatario){
 	int socket_des = Busca_socket(nombre_destinatario);
 	if (socket_des == 0){
-		return;
+		printf("No se encontro...\n");
 	}
 	char buffer1[BUFFERSIZE];
 	char buffer2[BUFFERSIZE];
